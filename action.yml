@@ -37,7 +37,7 @@ runs:
 
     - name: Run the docbuilder
       run: |
-        ./main ${{ inputs.path }} search.sql
+        ./main "${{ inputs.path }}" search.sql
         cat search.sql
-        echo ${{ inputs.path }}
+        echo "${{ inputs.path }}"
       shell: bash
