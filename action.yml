@@ -4,43 +4,40 @@ author: "Gioele Cantoni"
 
 inputs:
   project-string:
-    description: 'The SQLite Cloud project connection string.'
+    description: The SQLite Cloud project connection string.
     required: true
   path:
-    description: 'The path of the markdown files, by default it will parse every .md/.mdx file recursively.'
+    description: The path of the markdown files, by default it will parse every .md/.mdx file recursively starting from the working directory.
     required: false
-    default: '/'
+    default: |
+      $PWD
   database:
-    description: 'The name of the database to deploy on SQLite Cloud, by default it's documentation.sqlite.'
+    description: The name of the database to deploy on SQLite Cloud, by default it's documentation.sqlite.
     required: false
-    default: 'documentation.sqlite'
+    default: documentation.sqlite
   astro:
-    description: 'If you use Astro and you want to remove its docs header make this true.'
+    description: If you use Astro and you want to remove its docs header make this true.
     required: false
     default: false
   titles:
-    description: 'If you want to avoid redundancy of your titles in the search set this to true.'
+    description: If you want to avoid redundancy of your titles in the search set this to true.
     required: false
     default: false
 
 branding:
-  icon: 'search'
-  color: 'white'
+  icon: "search"
+  color: "white"
 
 runs:
   using: "composite"
   steps:
-    - name: Download dependencies
-      run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y gcc-multilib sqlite3 curl
-        sudo apt-get install -y --no-install-recommends libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxext-dev libxfixes-dev libgl1-mesa-dev libc6-dev build-essentials
-      shell: bash
-
     - name: Builds the docbuilder
       run: make main
       shell: bash
 
     - name: Run the docbuilder
-      run: ./main ${{ inputs.path }} search.sql #${{ inputs.database }} ${{ inputs.astro }} ${{ inputs.titles }}
+      run: |
+        ./main ${{ inputs.path }} search.sql
+        cat search.sql
+        echo ${{ inputs.path }}
       shell: bash
