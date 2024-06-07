@@ -1,0 +1,46 @@
+name: "SQLite Cloud - docs search"
+description: "Parses .md and .mdx files to create a database on your SQLite Cloud project."
+author: "Gioele Cantoni"
+
+inputs:
+  project-string:
+    description: 'The SQLite Cloud project connection string.'
+    required: true
+  path:
+    description: 'The path of the markdown files, by default it will parse every .md/.mdx file recursively.'
+    required: false
+    default: '/'
+  database:
+    description: 'The name of the database to deploy on SQLite Cloud, by default it's documentation.sqlite.'
+    required: false
+    default: 'documentation.sqlite'
+  astro:
+    description: 'If you use Astro and you want to remove its docs header make this true.'
+    required: false
+    default: false
+  titles:
+    description: 'If you want to avoid redundancy of your titles in the search set this to true.'
+    required: false
+    default: false
+
+branding:
+  icon: 'search'
+  color: 'white'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Download dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y gcc-multilib sqlite3 curl
+        sudo apt-get install -y --no-install-recommends libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxext-dev libxfixes-dev libgl1-mesa-dev libc6-dev build-essentials
+      shell: bash
+
+    - name: Builds the docbuilder
+      run: make main
+      shell: bash
+
+    - name: Run the docbuilder
+      run: ./main ${{ inputs.path }} search.sql #${{ inputs.database }} ${{ inputs.astro }} ${{ inputs.titles }}
+      shell: bash
