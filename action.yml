@@ -9,8 +9,7 @@ inputs:
   path:
     description: The path of the markdown files, by default it will parse every .md/.mdx file recursively starting from the working directory.
     required: false
-    default: |
-      $PWD
+    default: $(pwd)
   database:
     description: The name of the database to deploy on SQLite Cloud, by default it's documentation.sqlite.
     required: false
@@ -37,7 +36,6 @@ runs:
 
     - name: Run the docbuilder
       run: |
-        ./main "${{ inputs.path }}" search.sql
+        ./main ${{ inputs.path }} search.sql
         cat search.sql
-        echo "${{ inputs.path }}"
       shell: bash
