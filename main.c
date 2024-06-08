@@ -179,7 +179,7 @@ abort_read:
 
 // MARK: -
 
-static char *process_md (const char *input, size_t *len) {
+static char *process_md (const char *input, size_t *len, bool remove_astro_headers, bool remove_titles) {
     char *buffer = (char *)malloc(*len);
     if (!buffer) {
         printf("Not enough memory to allocate %zu bytes.", *len);
@@ -209,7 +209,7 @@ static char *process_md (const char *input, size_t *len) {
                 
         switch (c) {
             case '#': {
-                SET_SKIP('\n');
+                if(remove_titles) SET_SKIP('\n');
                 continue;
             }
                 
@@ -260,7 +260,7 @@ static char *process_md (const char *input, size_t *len) {
             }
                 
             case '-': {
-                if ((PEEK == '-') && (PEEK2 == '-')) {
+                if ((PEEK == '-') && (PEEK2 == '-') && remove_astro_headers) {
                     if (i == 1) {
                         // process meta
                         SET_SKIP_N('-', 3);
@@ -325,7 +325,7 @@ static void create_file (const char *path) {
 #if GENERATE_TRANSACTION
     write_line("BEGIN TRANSACTION;", -1, 1);
 #endif
-    write_line("DELETE FROM documentation;", -1, 1);
+    write_line("CREATE VIRTUAL TABLE IF NOT EXISTS documentation USING fts5 (url, title, content); DELETE FROM documentation;", -1, 1);
 }
 
 static void create_output (const char *path) {
@@ -400,7 +400,7 @@ static void add_entry(const char *url, char *buffer, size_t size) {
 #endif
 }
 
-static void scan_docs (const char *dir_path) {
+static void scan_docs (const char *dir_path, bool remove_astro_headers, bool remove_titles) {
     DIRREF dir = opendir(dir_path);
     if (!dir) return;
     
@@ -410,7 +410,7 @@ static void scan_docs (const char *dir_path) {
         // if file is a folder then start recursion
         const char *full_path = file_buildpath(target_file, dir_path);
         if (is_directory(full_path)) {
-            scan_docs(full_path);
+            scan_docs(full_path, remove_astro_headers, remove_titles);
             continue;
         }
         
@@ -424,7 +424,7 @@ static void scan_docs (const char *dir_path) {
         size_t size = 0;
         char *source_code = file_read(full_path, &size);
         
-        char *buffer = process_md(source_code, &size);
+        char *buffer = process_md(source_code, &size, remove_astro_headers, remove_titles);
         
         add_entry(url, buffer, size);
         
@@ -446,17 +446,31 @@ static void scan_docs (const char *dir_path) {
 // MARK: -
 
 int main(int argc, const char * argv[]) {
-    if (argc != 3) {
-        printf("Usage: docbuilder <input_docs_path> <output_db_path>\n");
+    if (argc < 3) {
+        printf("Usage: ./main <input_docs_path> ");
+        #if GENERATE_SQLITE_DATABASE
+        printf("<output_db_path>");
+        #else
+        printf("<output_sql_path>");
+        #endif
+        printf(" [<remove_astro_headers>] [<remove_titles>]\n");
         exit(-1);
     }
     
     // argv[1] = input docs path
     // argv[2] = output db path
+    // argv[3] = optional remove astro headers
+    // argv[4] = optional remove titles
+
+    bool remove_astro_headers = false;
+    bool remove_titles = false;
+
+    if(argc > 3) remove_astro_headers = (strcmp(argv[3], "true") == 0);
+    if(argc > 4) remove_titles = (strcmp(argv[4], "true") == 0);
     
     src_path = argv[1];
     create_output(argv[2]);
-    scan_docs(argv[1]);
+    scan_docs(argv[1], remove_astro_headers, remove_titles);
     close_output();
     
     return 0;

@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./
         with:
-          project-string: wip
-          database: wip
-          astro: false
-          titles: false
+          project-string: ${{ secrets.PROJECT_STRING }}
+          database: documentation.sqlite
+          remove-astro-headers: true
+          remove-titles: true
