@@ -29,14 +29,14 @@ jobs:
 
         steps:
             - name: Checkout repository
-                uses: actions/checkout@v2
+              uses: actions/checkout@v4
 
             - name: Build SQLite Cloud database
-                uses: sqlitecloud/sqlitecloud-docsearch-action@v1
-                with:
-                    project-string: ${{ secrets.PROJECT_STRING }}
-                    path: path/to/your/docs
-                    database: my-docs-search
+              uses: sqlitecloud/sqlitecloud-docsearch@v0.5
+              with:
+                project-string: ${{ secrets.PROJECT_STRING }}
+                path: path/to/your/docs
+                database: my-docs-search
 ```
 
 3. Make sure you have a project on SQLite Cloud. If not, sign up for an account and create one.
