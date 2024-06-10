@@ -29,6 +29,9 @@ branding:
 runs:
   using: "composite"
   steps:
+  
+    - uses: actions/checkout@v4
+
     - name: Builds the docBuilder
       run: make main
       shell: bash
