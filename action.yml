@@ -29,22 +29,26 @@ branding:
 runs:
   using: "composite"
   steps:
-  
-    - uses: actions/checkout@v4
+
+    - name: Checks out the action repository
+      uses: actions/checkout@v4
+      with:
+        clean: false
+        path: sqlitecloud-docsearch
 
     - name: Builds the docBuilder
-      run: make main
+      run: make sqlitecloud-docsearch/main
       shell: bash
 
     - name: Runs the docBuilder
-      run: ./main ${{ inputs.path }} search.sql ${{ inputs.remove-astro-headers }} ${{ inputs.remove-titles }}
+      run: ./sqlitecloud-docsearch/main ${{ inputs.path }} search.sql ${{ inputs.remove-astro-headers }} ${{ inputs.remove-titles }}
       shell: bash
 
     - name: Executes the SQL query
       run: |
         if [[ "${{ inputs.project-string }}" =~ ^sqlitecloud:// ]]; then
           [[ "${{ inputs.database }}" ]] || { echo "database input is empty" ; exit 1; }
-          SQL=$(echo -e $(cat search.sql))
+          SQL=$(echo -e $(cat sqlitecloud-docsearch/search.sql))
           BODY="{ \"sql\": \"${SQL}\", \"database\": \"${{ inputs.database }}\"}"
           URL="https:"$(echo ${{ inputs.project-string }} | awk -F ':' '{print $2}')":8090/v2/weblite/sql"
           echo $(curl $URL -H 'Content-Type: application/json' -H 'Authorization: Bearer ${{ inputs.project-string }}' -H 'accept: application/json' -d "$BODY")
