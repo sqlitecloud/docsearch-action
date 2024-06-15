@@ -42,7 +42,6 @@ jobs:
 3. Make sure you have a project on SQLite Cloud. If not, sign up for an account and create one.
 4. Add the Project Connection String as a secret in your repository settings, named `PROJECT_STRING`.
 5. Customize these inputs according to your needs.
-    * if the `database` input doesn't exist on the SQLite Cloud project the workflow will create it automatically.
     * if the `path` input isn't specified the workflow will search for every .md or .mdx file recursively from the root folder.
     * `strip-html`: Set this input to `true` if you want to remove the html elements.
     * `strip-jsx`: Set this input to `true` if you want to remove the jsx elements.

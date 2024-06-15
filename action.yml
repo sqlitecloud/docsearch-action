@@ -51,7 +51,7 @@ runs:
 
     - name: Runs .sql builder
       run: |
-        args="--add-create-database --use-transactions --json"
+        args=" --use-transactions --json"
         [[ ${{ inputs.strip-html }} == true ]] && args+=" --strip-html"
         [[ ${{ inputs.strip-jsx }} == true ]] && args+=" --strip-jsx"
         [[ ${{ inputs.strip-md-titles }} == true ]] && args+=" --strip-md-titles"
@@ -68,7 +68,7 @@ runs:
           echo -e "\", \"database\": \"${{ inputs.database }}\"}" >> up.json
           cat up.json
           URL="https:"$(echo ${{ inputs.project-string }} | awk -F ':' '{print $2}')":8090/v2/weblite/sql"
-          RES=$(curl $URL -H 'Content-Type: application/json' -H 'Authorization: Bearer ${{ inputs.project-string }}' -H 'accept: application/json' -d @up.json)
+          RES=$(curl --compressed $URL -H 'Content-Type: application/json' -H 'Authorization: Bearer ${{ inputs.project-string }}' -H 'accept: application/json' -d @up.json)
           echo $RES
           if [[ "$RES" =~ error ]]; then
             echo "Error on SQLite Cloud .sql execution"

@@ -368,8 +368,8 @@ static void create_file (const char *path) {
         write_line("BEGIN TRANSACTION;", -1, 1);
     }
     
-    write_line("DELETE FROM documentation;", -1, 1);
     write_line("CREATE VIRTUAL TABLE IF NOT EXISTS documentation USING fts5 (url, content);", -1, 1);
+    write_line("DELETE FROM documentation;", -1, 1);
 }
 
 static void create_output (const char *path) {
