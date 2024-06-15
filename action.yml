@@ -13,12 +13,20 @@ inputs:
     description: The path of the markdown files, by default it will parse every .md/.mdx file recursively starting from the working directory.
     required: false
     default: $(pwd)
-  remove-astro-headers:
-    description: If you use Astro and you want to remove its docs header make this true.
+  strip-html:
+    description: If you want to remove html elements from the search set this to true.
     required: false
     default: false
-  remove-titles:
-    description: If you want to avoid redundancy of your titles in the search set this to true.
+  strip-jsx:
+    description: If you want to remove jsx elements from the search set this to true.
+    required: false
+    default: false
+  strip-md-titles:
+    description: If you want to avoid redundancy of your markdown titles in the search set this to true.
+    required: false
+    default: false
+  strip-astro-header:
+    description: If you use Astro and you want to remove its docs header make this true.
     required: false
     default: false
 
@@ -30,28 +38,42 @@ runs:
   using: "composite"
   steps:
 
-    - name: Checks out the action repository
-      uses: actions/checkout@v4
-      with:
-        clean: false
-        path: sqlitecloud-docsearch
-
-    - name: Builds the docBuilder
-      run: make sqlitecloud-docsearch/main
+    - name: Set GitHub Path
+      run: echo "${{ github.action_path }}/src" >> $GITHUB_PATH
       shell: bash
 
-    - name: Runs the docBuilder
-      run: ./sqlitecloud-docsearch/main ${{ inputs.path }} search.sql ${{ inputs.remove-astro-headers }} ${{ inputs.remove-titles }}
+    - name: Makes .sql builder
+      run: |
+        cd ${{ github.action_path }}/src
+        gcc -c cargs.c -o cargs.o && gcc main.c cargs.o -o main
+        cd ${{ github.workspace }}
       shell: bash
 
-    - name: Executes the SQL query
+    - name: Runs .sql builder
+      run: |
+        args="--add-create-database --use-transactions --json"
+        [[ ${{ inputs.strip-html }} == true ]] && args+=" --strip-html"
+        [[ ${{ inputs.strip-jsx }} == true ]] && args+=" --strip-jsx"
+        [[ ${{ inputs.strip-md-titles }} == true ]] && args+=" --strip-md-titles"
+        [[ ${{ inputs.strip-astro-header }} == true ]] && args+=" --strip-astro-header"
+        echo $(main --input=${{ inputs.path }} --output=search.sql $args)
+      shell: bash
+
+    - name: Executes the .sql on SQLite Cloud
       run: |
         if [[ "${{ inputs.project-string }}" =~ ^sqlitecloud:// ]]; then
           [[ "${{ inputs.database }}" ]] || { echo "database input is empty" ; exit 1; }
-          SQL=$(echo -e $(cat sqlitecloud-docsearch/search.sql))
-          BODY="{ \"sql\": \"${SQL}\", \"database\": \"${{ inputs.database }}\"}"
+          echo -e -n "{ \"sql\": \"" > up.json
+          cat search.sql >> up.json
+          echo -e "\", \"database\": \"${{ inputs.database }}\"}" >> up.json
+          cat up.json
           URL="https:"$(echo ${{ inputs.project-string }} | awk -F ':' '{print $2}')":8090/v2/weblite/sql"
-          echo $(curl $URL -H 'Content-Type: application/json' -H 'Authorization: Bearer ${{ inputs.project-string }}' -H 'accept: application/json' -d "$BODY")
+          RES=$(curl $URL -H 'Content-Type: application/json' -H 'Authorization: Bearer ${{ inputs.project-string }}' -H 'accept: application/json' -d @up.json)
+          echo $RES
+          if [[ "$RES" =~ error ]]; then
+            echo "Error on SQLite Cloud .sql execution"
+            exit 1
+          fi
         else
           echo "${{ inputs.project-string }} incorrect project string"
           exit 1

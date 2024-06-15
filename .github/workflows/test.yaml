@@ -9,9 +9,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Clone the SQLite Cloud docs repository
+        run: git clone https://github.com/sqlitecloud/docs
+        shell: bash
       - uses: ./
         with:
           project-string: ${{ secrets.PROJECT_STRING }}
           database: documentation.sqlite
-          remove-astro-headers: true
-          remove-titles: true
+          strip-astro-header: true
+          strip-md-titles: true
+          strip-jsx: true
+          strip-html: true
+          path: docs

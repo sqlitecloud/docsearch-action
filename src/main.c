@@ -5,19 +5,9 @@
 //  Created by Marco Bambini on 12/04/23.
 //
 
-/*
- 
- . Remove title
- . Check for escaping in content
- . command line:
- .  domain
- .  strip index
- .  dest_url with apikey
- .  input docs
- .  output file
- .  strip options...
- 
- */
+
+#define GENERATE_SQLITE_DATABASE    0
+#define DOCBUILDER_VERSION          "0.2"
 
 #include <stdio.h>
 #include <fcntl.h>
@@ -26,8 +16,11 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <stdbool.h>
-#include <sqlite3.h>
 #include <sys/stat.h>
+#if GENERATE_SQLITE_DATABASE
+#include <sqlite3.h>
+#endif
+#include "cargs.h"
 
 #define DIRREF                      DIR*
 #define PATH_SEPARATOR              '/'
@@ -40,14 +33,21 @@
 #define SET_SKIP_N(_c,_n)           do {toskip = _c; nskip = _n;} while(0)
 #define SET_SKIP(_c)                SET_SKIP_N(_c, 1)
 #define RESET_SKIP()                do {toskip = NO_SKIP; nskip = 1;} while(0)
-#define GENERATE_SQLITE_DATABASE    0
-#define GENERATE_TRANSACTION        1
 
 #if GENERATE_SQLITE_DATABASE
 sqlite3 *db = NULL;
 #endif
 FILE *f = NULL;
+
 const char *src_path = NULL;
+const char *dest_path = NULL;
+bool strip_html = false;
+bool strip_jsx = false;
+bool strip_md_title = false;
+bool strip_astro_header = false;
+bool use_transaction = false;
+bool use_create_db = false;
+bool json_mode = false;
 
 // MARK: - I/O Utils -
 
@@ -179,13 +179,24 @@ abort_read:
 
 // MARK: -
 
-static char *process_md (const char *input, size_t *len, bool remove_astro_headers, bool remove_titles) {
+static bool check_line (const char *current, const char *begin_with, const char *end_with) {
+    char *found1 = NULL;
+    char *found2 = NULL;
+    
+    found1 = strstr(current, begin_with);
+    if (found1) found2 = strstr(current, end_with);
+    
+    return ((found1 != NULL) && (found2 != NULL));
+}
+
+static char *process_md (const char *input, size_t *len) {
     char *buffer = (char *)malloc(*len);
     if (!buffer) {
         printf("Not enough memory to allocate %zu bytes.", *len);
         exit(-3);
     }
     
+    bool is_code = false;
     int toskip = NO_SKIP;
     int nskip = 1;
     int i = 0, j = 0;
@@ -209,7 +220,8 @@ static char *process_md (const char *input, size_t *len, bool remove_astro_heade
                 
         switch (c) {
             case '#': {
-                if(remove_titles) SET_SKIP('\n');
+                if (strip_md_title == false) break;
+                SET_SKIP('\n');
                 continue;
             }
                 
@@ -219,11 +231,13 @@ static char *process_md (const char *input, size_t *len, bool remove_astro_heade
             }
                 
             case '<': {
+                if (strip_html == false) break;
                 SET_SKIP('>');
                 continue;
             }
                 
             case '{': {
+                if (strip_jsx == false) break;
                 SET_SKIP('}');
                 continue;
             }
@@ -234,13 +248,36 @@ static char *process_md (const char *input, size_t *len, bool remove_astro_heade
                 // skip character
                 continue;
             }
+            
+            case '\n': {
+                // remove double \n
+                if (PEEK == '\n') continue;
+                break;
+            }
+                
+            case '"': {
+                if (json_mode) buffer[j++] = '\\';
+                break;
+            }
+                
+            case 'i': {
+                if (strip_jsx == false) break;
+                // remove import jsx statement
+                if ((PEEK == 'm') && (PEEK2 == 'p') && check_line(&input[i-1], "import ", ".astro\"")) {
+                    SET_SKIP('\n');
+                    continue;
+                }
+                break;
+            }
                 
             case '`': {
                 // check peek and peek2
                 if ((PEEK == '`') && (PEEK2 == '`')) {
+                    is_code = !is_code;
                     SET_SKIP('\n');
                     continue;
                 }
+                break;
             }
                 
 #if !GENERATE_SQLITE_DATABASE
@@ -257,10 +294,11 @@ static char *process_md (const char *input, size_t *len, bool remove_astro_heade
                     SET_SKIP(')');
                     continue;
                 }
+                break;
             }
                 
             case '-': {
-                if ((PEEK == '-') && (PEEK2 == '-') && remove_astro_headers) {
+                if ((PEEK == '-') && (PEEK2 == '-') && strip_astro_header) {
                     if (i == 1) {
                         // process meta
                         SET_SKIP_N('-', 3);
@@ -305,7 +343,7 @@ static void create_database (const char *path) {
         exit(-2);
     }
     
-    rc = sqlite3_exec(db, "CREATE VIRTUAL TABLE documentation USING fts5 (url, content);", NULL, NULL, NULL);
+    rc = sqlite3_exec(db, "CREATE VIRTUAL TABLE IF NOT EXISTS documentation USING fts5 (url, content);", NULL, NULL, NULL);
     if (rc != SQLITE_OK) {
         printf("Unable to documentation table (%s).", sqlite3_errmsg(db));
         exit(-3);
@@ -322,10 +360,16 @@ static void create_file (const char *path) {
         exit(-2);
     }
     
-#if GENERATE_TRANSACTION
-    write_line("BEGIN TRANSACTION;", -1, 1);
-#endif
-    write_line("CREATE VIRTUAL TABLE IF NOT EXISTS documentation USING fts5 (url, title, content); DELETE FROM documentation;", -1, 1);
+    if (use_create_db) {
+        write_line("CREATE DATABASE documentation.sqlite IF NOT EXISTS;", -1, 1);
+    }
+    
+    if (use_transaction) {
+        write_line("BEGIN TRANSACTION;", -1, 1);
+    }
+    
+    write_line("DELETE FROM documentation;", -1, 1);
+    write_line("CREATE VIRTUAL TABLE IF NOT EXISTS documentation USING fts5 (url, content);", -1, 1);
 }
 
 static void create_output (const char *path) {
@@ -340,11 +384,11 @@ static void close_output (void) {
 #if GENERATE_SQLITE_DATABASE
     if (db) sqlite3_close(db);
 #else
-#if GENERATE_TRANSACTION
-    write_line("COMMIT;", -1, 1);
+    if (use_transaction) {
+        write_line("COMMIT;", -1, 1);
+    }
 #endif
     if (f) fclose(f);
-#endif
 }
 
 
@@ -400,7 +444,7 @@ static void add_entry(const char *url, char *buffer, size_t size) {
 #endif
 }
 
-static void scan_docs (const char *dir_path, bool remove_astro_headers, bool remove_titles) {
+static void scan_docs (const char *dir_path) {
     DIRREF dir = opendir(dir_path);
     if (!dir) return;
     
@@ -410,7 +454,7 @@ static void scan_docs (const char *dir_path, bool remove_astro_headers, bool rem
         // if file is a folder then start recursion
         const char *full_path = file_buildpath(target_file, dir_path);
         if (is_directory(full_path)) {
-            scan_docs(full_path, remove_astro_headers, remove_titles);
+            scan_docs(full_path);
             continue;
         }
         
@@ -424,7 +468,7 @@ static void scan_docs (const char *dir_path, bool remove_astro_headers, bool rem
         size_t size = 0;
         char *source_code = file_read(full_path, &size);
         
-        char *buffer = process_md(source_code, &size, remove_astro_headers, remove_titles);
+        char *buffer = process_md(source_code, &size);
         
         add_entry(url, buffer, size);
         
@@ -445,32 +489,120 @@ static void scan_docs (const char *dir_path, bool remove_astro_headers, bool rem
 
 // MARK: -
 
-int main(int argc, const char * argv[]) {
-    if (argc < 3) {
-        printf("Usage: ./main <input_docs_path> ");
-        #if GENERATE_SQLITE_DATABASE
-        printf("<output_db_path>");
-        #else
-        printf("<output_sql_path>");
-        #endif
-        printf(" [<remove_astro_headers>] [<remove_titles>]\n");
-        exit(-1);
-    }
+int main (int argc, char * argv[]) {
+    // setup arguments
+    static struct cag_option options[] = {
+        {
+            .identifier = 'i',
+            .access_letters = "i",
+            .access_name = "input",
+            .value_name = "input_docs_path",
+            .description = "Input documentation path"
+        },
+        
+        {
+            .identifier = 'o',
+            .access_letters = "o",
+            .access_name = "output",
+            .value_name = "output_path",
+            .description = "Output path"
+        },
+        
+        {
+            .identifier = 'a',
+            .access_letters = "a",
+            .access_name = "strip-astro-header",
+            .value_name = NULL,
+            .description = "Remove Astro header"
+        },
+        
+        {
+            .identifier = 'm',
+            .access_letters = "m",
+            .access_name = "strip-md-titles",
+            .value_name = NULL,
+            .description = "Strip Markdown titles"
+        },
+        
+        {
+            .identifier = 'l',
+            .access_letters = "l",
+            .access_name = "strip-html",
+            .value_name = NULL,
+            .description = "Strip HTML tags"
+        },
+        
+        {
+            .identifier = 'j',
+            .access_letters = "j",
+            .access_name = "strip-jsx",
+            .value_name = NULL,
+            .description = "Strip JSX tags"
+        },
+        
+        {
+            .identifier = 'c',
+            .access_letters = "c",
+            .access_name = "add-create-database",
+            .value_name = NULL,
+            .description = "Add a CREATE DATABASE statement"
+        },
+        
+        {
+            .identifier = 't',
+            .access_letters = "t",
+            .access_name = "use-transactions",
+            .value_name = NULL,
+            .description = "Use transactions"
+        },
+        
+        {
+            .identifier = 's',
+            .access_letters = "s",
+            .access_name = "json",
+            .value_name = NULL,
+            .description = "JSON mode"
+        },
+        
+        {
+            .identifier = 'h',
+            .access_letters = "h",
+            .access_name = "help",
+            .value_name = NULL,
+            .description = "Shows the command help"
+        },
+        
+    };
     
-    // argv[1] = input docs path
-    // argv[2] = output db path
-    // argv[3] = optional remove astro headers
-    // argv[4] = optional remove titles
-
-    bool remove_astro_headers = false;
-    bool remove_titles = false;
-
-    if(argc > 3) remove_astro_headers = (strcmp(argv[3], "true") == 0);
-    if(argc > 4) remove_titles = (strcmp(argv[4], "true") == 0);
+    cag_option_context context;
+    cag_option_init(&context, options, CAG_ARRAY_SIZE(options), argc, argv);
     
-    src_path = argv[1];
-    create_output(argv[2]);
-    scan_docs(argv[1], remove_astro_headers, remove_titles);
+    while (cag_option_fetch(&context)) {
+        switch (cag_option_get_identifier(&context)) {
+            case 'i': src_path = cag_option_get_value(&context); break;
+            case 'o': dest_path = cag_option_get_value(&context); break;
+            case 'l': strip_html = true; break;
+            case 'j': strip_jsx = true; break;
+            case 'm': strip_md_title = true; break;
+            case 'a': strip_astro_header = true; break;
+            case 't': use_transaction = true; break;
+            case 's': json_mode = true; break;
+            case 'c': use_create_db = true; break;
+                
+            case 'h':
+                printf("Usage: docbuilder [OPTION]...\n");
+                printf("A tool to generate SQLite FTS-5 statements from md and mdx files.\n\n");
+                cag_option_print(options, CAG_ARRAY_SIZE(options), stdout);
+                return EXIT_SUCCESS;
+        
+            case '?':
+                cag_option_print_error(&context, stdout);
+                break;
+        }
+      }
+    
+    create_output(dest_path);
+    scan_docs(src_path);
     close_output();
     
     return 0;
