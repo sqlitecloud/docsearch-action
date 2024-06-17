@@ -20,4 +20,4 @@ jobs:
           strip-md-titles: true
           strip-jsx: true
           strip-html: true
-          path: docs/commands
+          path: docs
