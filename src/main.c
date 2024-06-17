@@ -32,6 +32,7 @@
 #define NO_SKIP                     -1
 #define SET_SKIP_N(_c,_n)           do {toskip = _c; nskip = _n;} while(0)
 #define SET_SKIP(_c)                SET_SKIP_N(_c, 1)
+#define SKIP_UNTIL(_c)              do{i++;} while(PEEK == _c)
 #define RESET_SKIP()                do {toskip = NO_SKIP; nskip = 1;} while(0)
 
 #if GENERATE_SQLITE_DATABASE
@@ -245,7 +246,6 @@ static char *process_md (const char *input, size_t *len) {
                 
             case '[':
             case ']':
-            case '\t':
             case '*': {
                 // skip character
                 continue;
@@ -260,6 +260,24 @@ static char *process_md (const char *input, size_t *len) {
             case '"':
             case '\\': {
                 if (json_mode) buffer[j++] = '\\';
+                break;
+            }
+
+            case '\t': {
+                // replace tabulations with spaces
+                if (json_mode){
+                    if(PEEK == '\t'){
+                        continue;
+                    } else {
+                        c = ' ';
+                    }
+                }
+                break;
+            }
+
+            case ' ': {
+                // remove multiple spaces
+                if (PEEK == ' ') SKIP_UNTIL(' ');
                 break;
             }
                 
