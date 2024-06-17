@@ -53,4 +53,8 @@ jobs:
 
 Now, whenever you push changes to the `main` branch, the GitHub Action will automatically update the table for your documentation website's full-text search using SQLite Cloud.
 
+# Extra
+
+You can also use our docbuilder from the `src` folder locally! Just compile it with your preferred compiler (don't forget to link libraries) and run it without any arguments, it will show you instructions on how to use it! By running it locally you can choose between printing sql to a file or building an SQLite  database file.
+
 For more information and advanced configuration options, please refer to this article [SQLite Cloud Blog](https://sqlitecloud.io).
