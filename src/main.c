@@ -375,7 +375,7 @@ static void create_file (const char *path) {
         write_line("BEGIN TRANSACTION;", -1, 1);
     }
     
-    write_line("DROP TABLE IF EXITS documentation;", -1, 1);
+    write_line("DROP TABLE IF EXISTS documentation;", -1, 1);
     write_line("CREATE VIRTUAL TABLE IF NOT EXISTS documentation USING fts5 (url, content);", -1, 1);
 }
 
