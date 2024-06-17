@@ -244,6 +244,7 @@ static char *process_md (const char *input, size_t *len) {
                 
             case '[':
             case ']':
+            case '\t':
             case '*': {
                 // skip character
                 continue;
@@ -255,7 +256,8 @@ static char *process_md (const char *input, size_t *len) {
                 break;
             }
                 
-            case '"': {
+            case '"':
+            case '\\': {
                 if (json_mode) buffer[j++] = '\\';
                 break;
             }
