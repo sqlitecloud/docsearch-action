@@ -7,7 +7,7 @@ inputs:
     description: The SQLite Cloud project connection string.
     required: true
   database:
-    description: The name of the database to deploy on SQLite Cloud, by default it's documentation.sqlite.
+    description: The name of the database to use on SQLite Cloud, just remeber to create first a database on your project!
     required: true
   path:
     description: The path of the markdown files, by default it will parse every .md/.mdx file recursively starting from the working directory.
