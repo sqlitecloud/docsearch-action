@@ -32,7 +32,7 @@ jobs:
               uses: actions/checkout@v4
 
             - name: Build SQLite Cloud database
-              uses: sqlitecloud/sqlitecloud-docsearch@v1
+              uses: sqlitecloud/docsearch-action@v1
               with:
                 project-string: ${{ secrets.PROJECT_STRING }}
                 path: path/to/your/docs
