@@ -32,7 +32,7 @@ jobs:
               uses: actions/checkout@v4
 
             - name: Build SQLite Cloud database
-              uses: sqlitecloud/sqlitecloud-docsearch@v0.5
+              uses: sqlitecloud/sqlitecloud-docsearch@v1
               with:
                 project-string: ${{ secrets.PROJECT_STRING }}
                 path: path/to/your/docs
@@ -41,13 +41,14 @@ jobs:
 
 3. Make sure you have a project on SQLite Cloud. If not, sign up for an account and create one.
 4. Add the Project Connection String as a secret in your repository settings, named `PROJECT_STRING`.
-5. Customize these inputs according to your needs.
+5. Create a database in your SQLite Cloud project and write its name in the `database` input of the action.
+6. Customize these inputs according to your needs.
     * if the `path` input isn't specified the workflow will search for every .md or .mdx file recursively from the root folder.
     * `strip-html`: Set this input to `true` if you want to remove the html elements.
     * `strip-jsx`: Set this input to `true` if you want to remove the jsx elements.
     * `strip-md-titles`: Set this input to `true` if you want to remove the markdown titles to avoid redundancy in the search.
     * `strip-astro-header`: Set this input to `true` if you want to remove the Astro header from every file.
-6. Commit and push the workflow file to your repository.
+7. Commit and push the workflow file to your repository.
 
 
 Now, whenever you push changes to the `main` branch, the GitHub Action will automatically update the table for your documentation website's full-text search using SQLite Cloud.
