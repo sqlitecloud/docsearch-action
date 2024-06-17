@@ -7,7 +7,7 @@
 
 
 #define GENERATE_SQLITE_DATABASE    0
-#define DOCBUILDER_VERSION          "0.2"
+#define DOCBUILDER_VERSION          "0.3"
 
 #include <stdio.h>
 #include <fcntl.h>
@@ -46,8 +46,9 @@ bool strip_jsx = false;
 bool strip_md_title = false;
 bool strip_astro_header = false;
 bool use_transaction = false;
-bool use_create_db = false;
 bool json_mode = false;
+bool use_database = false;
+bool create_db = false;
 
 // MARK: - I/O Utils -
 
@@ -362,16 +363,20 @@ static void create_file (const char *path) {
         exit(-2);
     }
     
-    if (use_create_db) {
+    if (create_db) {
         write_line("CREATE DATABASE documentation.sqlite IF NOT EXISTS;", -1, 1);
+    }
+    
+    if (use_database) {
+        write_line("USE DATABASE documentation.sqlite;", -1, 1);
     }
     
     if (use_transaction) {
         write_line("BEGIN TRANSACTION;", -1, 1);
     }
     
+    write_line("DROP TABLE IF EXITS documentation;", -1, 1);
     write_line("CREATE VIRTUAL TABLE IF NOT EXISTS documentation USING fts5 (url, content);", -1, 1);
-    write_line("DELETE FROM documentation;", -1, 1);
 }
 
 static void create_output (const char *path) {
@@ -545,9 +550,17 @@ int main (int argc, char * argv[]) {
         {
             .identifier = 'c',
             .access_letters = "c",
-            .access_name = "add-create-database",
+            .access_name = "create-database",
             .value_name = NULL,
             .description = "Add a CREATE DATABASE statement"
+        },
+        
+        {
+            .identifier = 'u',
+            .access_letters = "u",
+            .access_name = "use-database",
+            .value_name = NULL,
+            .description = "Add a USE DATABASE statement"
         },
         
         {
@@ -588,8 +601,9 @@ int main (int argc, char * argv[]) {
             case 'm': strip_md_title = true; break;
             case 'a': strip_astro_header = true; break;
             case 't': use_transaction = true; break;
+            case 'u': use_database = true; break;
             case 's': json_mode = true; break;
-            case 'c': use_create_db = true; break;
+            case 'c': create_db = true; break;
                 
             case 'h':
                 printf("Usage: docbuilder [OPTION]...\n");
