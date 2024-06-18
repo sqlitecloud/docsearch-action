@@ -32,7 +32,7 @@ inputs:
 
 branding:
   icon: "search"
-  color: "white"
+  color: "blue"
 
 runs:
   using: "composite"
