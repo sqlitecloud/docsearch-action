@@ -5,7 +5,7 @@
 </p>
 
 ![Build Status](https://github.com/sqlitecloud/docsearch-action/actions/workflows/test.yaml/badge.svg "Build Status")
-[![Latest Release](https://img.shields.io/github/v/tag/sqlitecloud/docsearch-action)](https://github.com/sqlitecloud/docsearch-action/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/tag/sqlitecloud/docsearch-action?label=Version)](https://github.com/sqlitecloud/docsearch-action/releases/latest)
 
 This GitHub Action automates the process of building a table for an out-of-the-box documentation website full-text search powered by SQLite Cloud.
 
