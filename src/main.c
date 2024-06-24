@@ -42,6 +42,7 @@ FILE *f = NULL;
 
 const char *src_path = NULL;
 const char *dest_path = NULL;
+const char *base_url = NULL;
 bool strip_html = false;
 bool strip_jsx = false;
 bool strip_md_title = false;
@@ -95,7 +96,7 @@ static char *file_buildpath (const char *filename, const char *dirpath) {
     return full_path;
 }
 
-static char *file_buildurl (const char *fullpath) {
+static char *file_buildurl (const char *base_url, const char *fullpath) {
     char *url = (char *)malloc(512);
     if (!url) return NULL;
     
@@ -125,7 +126,6 @@ static char *file_buildurl (const char *fullpath) {
         }
     }
     
-    const char *base_url = "https://docs.sqlitecloud.io/docs/";
     snprintf(url, 512, "%s%s", base_url, p);
     
     free(path);
@@ -469,7 +469,7 @@ static void add_entry(const char *url, char *buffer, size_t size) {
 #endif
 }
 
-static void scan_docs (const char *dir_path) {
+static void scan_docs (const char *base_url, const char *dir_path) {
     DIRREF dir = opendir(dir_path);
     if (!dir) return;
     
@@ -479,7 +479,7 @@ static void scan_docs (const char *dir_path) {
         // if file is a folder then start recursion
         const char *full_path = file_buildpath(target_file, dir_path);
         if (is_directory(full_path)) {
-            scan_docs(full_path);
+            scan_docs(base_url, full_path);
             continue;
         }
         
@@ -487,7 +487,7 @@ static void scan_docs (const char *dir_path) {
         if ((strstr(full_path, ".md") == NULL) && (strstr(full_path, ".mdx") == NULL)) continue;
         
         // build url and title
-        const char *url = file_buildurl(full_path);
+        const char *url = file_buildurl(base_url, full_path);
         
         // load md source code
         size_t size = 0;
@@ -531,6 +531,14 @@ int main (int argc, char * argv[]) {
             .access_name = "output",
             .value_name = "output_path",
             .description = "Output path"
+        },
+
+        {
+            .identifier = 'b',
+            .access_letters = "b",
+            .access_name = "base-url",
+            .value_name = "base_url",
+            .description = "Base url in docs path"
         },
         
         {
@@ -614,6 +622,7 @@ int main (int argc, char * argv[]) {
         switch (cag_option_get_identifier(&context)) {
             case 'i': src_path = cag_option_get_value(&context); break;
             case 'o': dest_path = cag_option_get_value(&context); break;
+            case 'b': base_url = cag_option_get_value(&context); break;
             case 'l': strip_html = true; break;
             case 'j': strip_jsx = true; break;
             case 'm': strip_md_title = true; break;
@@ -636,7 +645,7 @@ int main (int argc, char * argv[]) {
       }
     
     create_output(dest_path);
-    scan_docs(src_path);
+    scan_docs(base_url, src_path);
     close_output();
     
     return 0;

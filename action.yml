@@ -6,6 +6,9 @@ inputs:
   project-string:
     description: The SQLite Cloud project connection string.
     required: true
+  base-url:
+    description: Your website's documentation base url.
+    required: true
   database:
     description: The name of the database to use on SQLite Cloud, just remeber to create first a database on your project!
     required: true
@@ -56,7 +59,7 @@ runs:
         [[ ${{ inputs.strip-jsx }} == true ]] && args+=" --strip-jsx"
         [[ ${{ inputs.strip-md-titles }} == true ]] && args+=" --strip-md-titles"
         [[ ${{ inputs.strip-astro-header }} == true ]] && args+=" --strip-astro-header"
-        echo $(main --input=${{ inputs.path }} --output=search.sql $args)
+        echo $(main --input=${{ inputs.path }} --output=search.sql --base-url=${{ inputs.base-url }} $args)
       shell: bash
 
     - name: Executes the .sql on SQLite Cloud

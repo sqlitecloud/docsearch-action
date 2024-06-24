@@ -15,6 +15,7 @@ jobs:
       - uses: ./
         with:
           project-string: ${{ secrets.PROJECT_STRING }}
+          base-url: https://your-website.com/docs/
           database: documentation.sqlite
           strip-astro-header: true
           strip-md-titles: true

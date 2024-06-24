@@ -42,6 +42,7 @@ jobs:
               uses: sqlitecloud/docsearch-action@v1
               with:
                 project-string: ${{ secrets.PROJECT_STRING }}
+                base-url: https://your-website.com/docs/
                 path: path/to/your/docs
                 database: my-docs-search
 ```
@@ -50,11 +51,12 @@ jobs:
 4. Add the Project Connection String as a secret in your repository settings, named `PROJECT_STRING`.
 5. Create a database in your SQLite Cloud project and write its name in the `database` input of the action.
 6. Customize these inputs according to your needs.
-    * if the `path` input isn't specified the workflow will search for every .md or .mdx file recursively from the root folder.
-    * `strip-html`: Set this input to `true` if you want to remove the html elements.
-    * `strip-jsx`: Set this input to `true` if you want to remove the jsx elements.
-    * `strip-md-titles`: Set this input to `true` if you want to remove the markdown titles to avoid redundancy in the search.
-    * `strip-astro-header`: Set this input to `true` if you want to remove the Astro header from every file.
+      * The `base-url` represents the common part of your documentation URL.
+      * If the `path` input is not specified, the workflow will recursively search for every .md or .mdx file starting from the root folder.
+      * Set the `strip-html` input to `true` if you want to remove HTML elements.
+      * Set the `strip-jsx` input to `true` if you want to remove JSX elements.
+      * Set the `strip-md-titles` input to `true` if you want to remove markdown titles to avoid redundancy in the search.
+      * Set the `strip-astro-header` input to `true` if you want to remove the Astro header from every file.
 7. Commit and push the workflow file to your repository.
 
 
