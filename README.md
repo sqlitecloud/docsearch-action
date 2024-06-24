@@ -39,7 +39,7 @@ jobs:
               uses: actions/checkout@v4
 
             - name: Build SQLite Cloud database
-              uses: sqlitecloud/docsearch-action@v1
+              uses: sqlitecloud/docsearch-action@v2
               with:
                 project-string: ${{ secrets.PROJECT_STRING }}
                 base-url: https://your-website.com/docs/
