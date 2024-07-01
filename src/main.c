@@ -35,6 +35,8 @@
 #define SKIP_UNTIL(_c)              do{i++;} while(PEEK == _c)
 #define RESET_SKIP()                do {toskip = NO_SKIP; nskip = 1;} while(0)
 
+#define OPTIONS_COL                  json_mode && strip_astro_header
+
 #if GENERATE_SQLITE_DATABASE
 sqlite3 *db = NULL;
 #endif
@@ -49,6 +51,7 @@ bool strip_md_title = false;
 bool strip_astro_header = false;
 bool use_transaction = false;
 bool json_mode = false;
+bool path_using_slug = false;
 bool use_database = false;
 bool create_db = false;
 
@@ -191,17 +194,30 @@ static bool check_line (const char *current, const char *begin_with, const char 
     return ((found1 != NULL) && (found2 != NULL));
 }
 
-static char *process_md (const char *input, size_t *len) {
-    char *buffer = (char *)malloc(*len);
-    if (!buffer) {
-        printf("Not enough memory to allocate %zu bytes.", *len);
-        exit(-3);
+static char *match_copy(const char *str, const char match) {
+    const char *pos = strchr(str, match);
+    
+    if (pos != NULL) {
+        size_t length = pos - str;
+        
+        char *cp_str = (char *)malloc(length + 1);
+        if (cp_str == NULL) return NULL;
+        
+        strncpy(cp_str, str, length);
+        cp_str[length] = '\0';
+        
+        return cp_str;
     }
     
+    return NULL;
+}
+
+static char *process_md (const char *input, char *buffer, size_t *len, char *astro_header, size_t *header_len) {
+
     bool is_code = false;
     int toskip = NO_SKIP;
     int nskip = 1;
-    int i = 0, j = 0;
+    int i = 0, j = 0, h = 0, slug_index = 6; // 6 is the length of the string "slug: "
     
     while (input[i]) {
         int c = NEXT;
@@ -216,6 +232,9 @@ static char *process_md (const char *input, size_t *len) {
                     NEXT; // \n
                     RESET_SKIP();
                 }
+            } else if(toskip == '-' && nskip == 3) {
+                if(path_using_slug && c == '\n' && PEEK == 's' && PEEK2 == 'l' && check_line(&input[i-1], "\nslug: ", "\n")) slug_index += i;
+                astro_header[h++] = c;
             }
             continue;
         }
@@ -337,7 +356,93 @@ static char *process_md (const char *input, size_t *len) {
     
     *len = j;
     buffer[j] = 0;
-    return buffer;
+    *header_len = h;
+    astro_header[h] = 0;
+    if(slug_index == 6) return NULL; // no slug found
+    return match_copy(&input[slug_index], '\n');
+}
+
+static void process_json (char *input, size_t *header_len) {
+
+    *header_len = *header_len * 2;
+    char *astro_header = (char *)malloc(*header_len);
+    if (!astro_header) {
+        printf("Not enough memory to allocate %zu bytes.", *header_len);
+        exit(-3);
+    }
+
+    int i = 0, j = 0, quotes = 0;
+
+    astro_header[j++] = '\n';
+    astro_header[j++] = '{';
+    astro_header[j++] = '\n';
+    astro_header[j++] = '\\';
+    astro_header[j++] = '\"';
+    
+    while (input[i]) {
+        int c = NEXT;
+                
+        switch (c) {
+            case ':': {
+                if(PEEK == ' ' && quotes == 0){
+                    astro_header[j++] = '\\';
+                    astro_header[j++] = '\"';
+                    astro_header[j++] = ':';
+                    astro_header[j++] = ' ';
+                    NEXT; //skip the space
+                    astro_header[j++] = '\\';
+                    astro_header[j++] = '\"';
+                    continue;
+                }
+                break;
+            }
+            case '\n': {
+                if(PEEK && PEEK != ' ' && PEEK != '\n' && i > 1){
+                    astro_header[j++] = '\\';
+                    astro_header[j++] = '\"';
+                    astro_header[j++] = ',';
+                    astro_header[j++] = '\n';
+                    astro_header[j++] = '\\';
+                    astro_header[j++] = '\"';
+                }
+                quotes = 0;
+                continue;
+            }
+            case '\\': {
+                astro_header[j++] = '\\';
+                break;
+            }
+            case '\'': {
+                quotes++;
+                astro_header[j++] = c;
+                break;
+            }
+            case '\"': {
+                quotes++;
+                continue;
+            }
+            case '[':
+            case ']':
+            case '\t': {
+                // skip character
+                continue;
+            }
+        }
+        
+        // copy character as-is
+        astro_header[j++] = c;
+    }
+
+    astro_header[j++] = '\\';
+    astro_header[j++] = '\"';
+    astro_header[j++] = '\n';
+    astro_header[j++] = '}';
+    astro_header[j++] = '\n';
+    astro_header[j] = 0;
+    *header_len = j;
+    
+    strcpy(input, astro_header);
+    free(astro_header);
 }
 
 // MARK: -
@@ -394,7 +499,11 @@ static void create_file (const char *path) {
     }
     
     write_line("DROP TABLE IF EXISTS documentation;", -1, 1);
-    write_line("CREATE VIRTUAL TABLE IF NOT EXISTS documentation USING fts5 (url, content);", -1, 1);
+    if(OPTIONS_COL){
+        write_line("CREATE VIRTUAL TABLE IF NOT EXISTS documentation USING fts5 (url, content, options);", -1, 1);
+    } else {
+        write_line("CREATE VIRTUAL TABLE IF NOT EXISTS documentation USING fts5 (url, content);", -1, 1);
+    }
 }
 
 static void create_output (const char *path) {
@@ -443,29 +552,39 @@ abort_add:
 }
 #endif
 
-static void add_file_entry(const char *url, char *buffer, size_t bsize) {
+static void add_file_entry(const char *url, char *buffer, size_t bsize, char *astro_header, size_t header_size) {
     if (bsize == -1) bsize = strlen(buffer);
+    if (header_size == -1) header_size = strlen(astro_header);
     
     size_t url_size = strlen(url);
     
-    size_t blen = url_size + bsize + 1024;
+    size_t blen;
+    if(OPTIONS_COL){
+        blen = url_size + bsize + header_size + 1024;
+    } else {
+        blen = url_size + bsize + 1024;
+    }
     char *b = malloc (blen);
     if (!b) {
         exit(-11);
     }
     
-    // INSERT INTO documentation (url, content) VALUES (?1, ?2);
-    size_t nwrote = snprintf(b, blen, "INSERT INTO documentation (url, content) VALUES ('%s', '%s');", url, buffer);
+    size_t nwrote;
+    if(OPTIONS_COL){
+        nwrote = snprintf(b, blen, "INSERT INTO documentation (url, content, options) VALUES ('%s', '%s', json('%s'));", url, buffer, astro_header);
+    } else {
+        nwrote = snprintf(b, blen, "INSERT INTO documentation (url, content) VALUES ('%s', '%s');", url, buffer);
+    }
     write_line(b, nwrote, 1);
     
     free(b);
 }
 
-static void add_entry(const char *url, char *buffer, size_t size) {
+static void add_entry(const char *url, char *buffer, size_t size, char *astro_header, size_t header_size) {
 #if GENERATE_SQLITE_DATABASE
     add_database_entry(url, buffer, size);
 #else
-    add_file_entry(url, buffer, size);
+    add_file_entry(url, buffer, size, astro_header, header_size);
 #endif
 }
 
@@ -486,16 +605,33 @@ static void scan_docs (const char *base_url, const char *dir_path) {
         // test only files with a .md or mdx extension
         if ((strstr(full_path, ".md") == NULL) && (strstr(full_path, ".mdx") == NULL)) continue;
         
-        // build url and title
-        const char *url = file_buildurl(base_url, full_path);
-        
         // load md source code
         size_t size = 0;
         char *source_code = file_read(full_path, &size);
         
-        char *buffer = process_md(source_code, &size);
+        size_t header_size = size;
+        char *buffer = (char *)malloc(size);
+        char *astro_header = (char *)malloc(header_size);
+        if (!buffer || !astro_header) {
+            printf("Not enough memory to allocate %zu bytes.", size > header_size ? size : header_size);
+            exit(-3);
+        }
+
+        const char *slug_path = process_md(source_code, buffer, &size, astro_header, &header_size);
+
+        if(OPTIONS_COL) process_json(astro_header, &header_size);
+
+        // build url and title
+        char *url;
+        if(path_using_slug && slug_path != NULL){
+            url = malloc(strlen(base_url) + strlen(slug_path) + 1);
+            strcpy(url, base_url);
+            strcat(url, slug_path);
+        } else {
+            url = file_buildurl(base_url, full_path);
+        }
         
-        add_entry(url, buffer, size);
+        add_entry(url, buffer, size, astro_header, header_size);
         
         //DEBUG
         //printf("title: %s\n", title);
@@ -507,8 +643,10 @@ static void scan_docs (const char *base_url, const char *dir_path) {
         
         free((void *)url);
         free((void *)full_path);
+        free((void *)slug_path);
         free(source_code);
         free(buffer);
+        free(astro_header);
     }
 }
 
@@ -596,6 +734,14 @@ int main (int argc, char * argv[]) {
             .value_name = NULL,
             .description = "Use transactions"
         },
+
+        {
+            .identifier = 'g',
+            .access_letters = "g",
+            .access_name = "path-using-slug",
+            .value_name = NULL,
+            .description = "Use the slug in the header as the path instead of the relative one"
+        },
         
         {
             .identifier = 's',
@@ -630,6 +776,7 @@ int main (int argc, char * argv[]) {
             case 't': use_transaction = true; break;
             case 'u': use_database = true; break;
             case 's': json_mode = true; break;
+            case 'g': path_using_slug = true; break;
             case 'c': create_db = true; break;
                 
             case 'h':

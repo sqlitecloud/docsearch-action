@@ -39,7 +39,7 @@ jobs:
               uses: actions/checkout@v4
 
             - name: Build SQLite Cloud database
-              uses: sqlitecloud/docsearch-action@v2
+              uses: sqlitecloud/docsearch-action@v3
               with:
                 project-string: ${{ secrets.PROJECT_STRING }}
                 base-url: https://your-website.com/docs/
@@ -56,7 +56,8 @@ jobs:
       * Set the `strip-html` input to `true` if you want to remove HTML elements.
       * Set the `strip-jsx` input to `true` if you want to remove JSX elements.
       * Set the `strip-md-titles` input to `true` if you want to remove markdown titles to avoid redundancy in the search.
-      * Set the `strip-astro-header` input to `true` if you want to remove the Astro header from every file.
+      * Set the `strip-astro-header` input to `true` if you want to remove the Astro header from every file and put it in the `documentation` table as a JSON Object.
+      * Set the `path-using-slug` input to `true` if you want to use the slug in the header as the path instead of the relative one for the URL.
 7. Commit and push the workflow file to your repository.
 
 

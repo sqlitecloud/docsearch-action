@@ -32,6 +32,10 @@ inputs:
     description: If you use Astro and you want to remove its docs header make this true.
     required: false
     default: false
+  path-using-slug:
+    description: Use the slug in the header as the path instead of the relative one.
+    required: false
+    default: false
 
 branding:
   icon: "search"
@@ -59,6 +63,7 @@ runs:
         [[ ${{ inputs.strip-jsx }} == true ]] && args+=" --strip-jsx"
         [[ ${{ inputs.strip-md-titles }} == true ]] && args+=" --strip-md-titles"
         [[ ${{ inputs.strip-astro-header }} == true ]] && args+=" --strip-astro-header"
+        [[ ${{ inputs.path-using-slug }} == true ]] && args+=" --path-using-slug"
         echo $(main --input=${{ inputs.path }} --output=search.sql --base-url=${{ inputs.base-url }} $args)
       shell: bash
 
