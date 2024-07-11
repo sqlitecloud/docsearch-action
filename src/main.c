@@ -629,7 +629,10 @@ static void scan_docs (const char *base_url, const char *dir_path) {
 
         const char *slug_path = process_md(source_code, buffer, &size, astro_header, &header_size);
 
-        if(status_draft) continue;
+        if(status_draft){
+            status_draft = false;
+            continue;
+        }
 
         if(OPTIONS_COL) process_json(astro_header, &header_size);
 
