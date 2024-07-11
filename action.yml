@@ -28,8 +28,8 @@ inputs:
     description: If you want to avoid redundancy of your markdown titles in the search set this to true.
     required: false
     default: false
-  strip-astro-header:
-    description: If you use Astro and you want to remove its docs header make this true.
+  use-front-matter:
+    description: If you use a front matter and you want the action to convert it to json and send it to the cloud make this true.
     required: false
     default: false
   path-using-slug:
@@ -62,7 +62,7 @@ runs:
         [[ ${{ inputs.strip-html }} == true ]] && args+=" --strip-html"
         [[ ${{ inputs.strip-jsx }} == true ]] && args+=" --strip-jsx"
         [[ ${{ inputs.strip-md-titles }} == true ]] && args+=" --strip-md-titles"
-        [[ ${{ inputs.strip-astro-header }} == true ]] && args+=" --strip-astro-header"
+        [[ ${{ inputs.use-front-matter }} == true ]] && args+=" --use-front-matter"
         [[ ${{ inputs.path-using-slug }} == true ]] && args+=" --path-using-slug"
         echo $(main --input=${{ inputs.path }} --output=search.sql --base-url=${{ inputs.base-url }} $args)
       shell: bash

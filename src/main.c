@@ -7,7 +7,7 @@
 
 
 #define GENERATE_SQLITE_DATABASE    0
-#define DOCBUILDER_VERSION          "0.3"
+#define DOCBUILDER_VERSION          "0.4"
 
 #include <stdio.h>
 #include <fcntl.h>
@@ -26,6 +26,8 @@
 #define PATH_SEPARATOR              '/'
 
 #define NEXT                        input[i++]
+#define PREV2                       input[i-3]
+#define PREV                        input[i-2]
 #define CURRENT                     input[i-1]
 #define PEEK                        input[i]
 #define PEEK2                       input[i+1]
@@ -35,7 +37,7 @@
 #define SKIP_UNTIL(_c)              do{i++;} while(PEEK == _c)
 #define RESET_SKIP()                do {toskip = NO_SKIP; nskip = 1;} while(0)
 
-#define OPTIONS_COL                  json_mode && strip_astro_header
+#define OPTIONS_COL                  json_mode && use_front_matter
 
 #if GENERATE_SQLITE_DATABASE
 sqlite3 *db = NULL;
@@ -48,12 +50,13 @@ const char *base_url = NULL;
 bool strip_html = false;
 bool strip_jsx = false;
 bool strip_md_title = false;
-bool strip_astro_header = false;
+bool use_front_matter = false;
 bool use_transaction = false;
 bool json_mode = false;
 bool path_using_slug = false;
 bool use_database = false;
 bool create_db = false;
+bool status_draft = false;
 
 // MARK: - I/O Utils -
 
@@ -77,6 +80,7 @@ static char *directory_read (DIRREF ref) {
         }
         if (d->d_name[0] == '\0') continue;
         if (d->d_name[0] == '.') continue;
+        //if (use_front_matter && d->d_name[0] == '_') continue; // skipping files starting with _ like astro does
         return (char *)d->d_name;
     }
     return NULL;
@@ -226,14 +230,20 @@ static char *process_md (const char *input, char *buffer, size_t *len, char *ast
             if (c == toskip) {
                 if (nskip == 1) {
                     RESET_SKIP();
-                } else if ((nskip == 3) && (PEEK == toskip) && (PEEK2 == toskip)) {
-                    NEXT; // -
-                    NEXT; // -
-                    NEXT; // \n
-                    RESET_SKIP();
+                } else if (nskip == 3) {
+                    if((PEEK == toskip) && (PEEK2 == toskip)){
+                        NEXT; // -
+                        NEXT; // -
+                        NEXT; // \n
+                        RESET_SKIP();
+                    } else if( ((PREV != toskip) && (PEEK != toskip)) || ((PREV != toskip) && (PREV2 != toskip)) ) astro_header[h++] = c;
                 }
             } else if(toskip == '-' && nskip == 3) {
                 if(path_using_slug && c == '\n' && PEEK == 's' && PEEK2 == 'l' && check_line(&input[i-1], "\nslug: ", "\n")) slug_index += i;
+                if(use_front_matter && c == '\n' && PEEK == 's' && PEEK2 == 't' && check_line(&input[i-1], "\nstatus:", "draft")){
+                    status_draft = true;
+                    return NULL;
+                }
                 astro_header[h++] = c;
             }
             continue;
@@ -338,7 +348,7 @@ static char *process_md (const char *input, char *buffer, size_t *len, char *ast
             }
                 
             case '-': {
-                if ((PEEK == '-') && (PEEK2 == '-') && strip_astro_header) {
+                if ((PEEK == '-') && (PEEK2 == '-') && use_front_matter) {
                     if (i == 1) {
                         // process meta
                         SET_SKIP_N('-', 3);
@@ -619,6 +629,8 @@ static void scan_docs (const char *base_url, const char *dir_path) {
 
         const char *slug_path = process_md(source_code, buffer, &size, astro_header, &header_size);
 
+        if(status_draft) continue;
+
         if(OPTIONS_COL) process_json(astro_header, &header_size);
 
         // build url and title
@@ -682,7 +694,7 @@ int main (int argc, char * argv[]) {
         {
             .identifier = 'a',
             .access_letters = "a",
-            .access_name = "strip-astro-header",
+            .access_name = "use-front-matter",
             .value_name = NULL,
             .description = "Remove Astro header"
         },
@@ -772,7 +784,7 @@ int main (int argc, char * argv[]) {
             case 'l': strip_html = true; break;
             case 'j': strip_jsx = true; break;
             case 'm': strip_md_title = true; break;
-            case 'a': strip_astro_header = true; break;
+            case 'a': use_front_matter = true; break;
             case 't': use_transaction = true; break;
             case 'u': use_database = true; break;
             case 's': json_mode = true; break;
