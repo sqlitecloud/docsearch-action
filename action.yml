@@ -74,7 +74,7 @@ runs:
           echo "{ \"sql\": \"" > up.json
           cat search.sql >> up.json
           echo "\", \"database\": \"${{ inputs.database }}\"}" >> up.json
-          URL="https:"$(echo ${{ inputs.project-string }} | awk -F ':' '{print $2}')":8090/v2/weblite/sql"
+          URL="https:"$(echo ${{ inputs.project-string }} | awk -F ':' '{print $2}')":443/v2/weblite/sql"
           RES=$(curl --compressed $URL -H 'Content-Type: application/json' -H 'Authorization: Bearer ${{ inputs.project-string }}' -H 'accept: application/json' -d @up.json)
           echo $RES
           if [[ "$RES" =~ error ]]; then

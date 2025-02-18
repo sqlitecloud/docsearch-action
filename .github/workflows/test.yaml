@@ -16,7 +16,7 @@ jobs:
         with:
           project-string: ${{ secrets.PROJECT_STRING }}
           base-url: https://your-website.com/docs/
-          database: documentation.sqlite
+          database: docsearch-action-test.sqlite
           use-front-matter: true
           strip-md-titles: true
           strip-jsx: true
