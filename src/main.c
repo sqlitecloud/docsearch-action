@@ -189,13 +189,20 @@ abort_read:
 // MARK: -
 
 static bool check_line (const char *current, const char *begin_with, const char *end_with) {
-    char *found1 = NULL;
-    char *found2 = NULL;
+    // find the end of the current line
+    if (strlen(begin_with) > strlen(current)) return false;
+    const char *line_end = strchr(current+strlen(begin_with), '\n');
+    if (!line_end) line_end = current + strlen(current); // No newline, use end of string
     
-    found1 = strstr(current, begin_with);
-    if (found1) found2 = strstr(current, end_with);
+    // search for begin_with within the line
+    const char *found1 = strstr(current, begin_with);
+    if (!found1 || found1 > line_end) return false;
     
-    return ((found1 != NULL) && (found2 != NULL));
+    // search for end_with after found1 but within the line
+    const char *found2 = strstr(found1 + strlen(begin_with), end_with);
+    if (!found2 || found2 > line_end) return false;
+    
+    return true;
 }
 
 static char *match_copy(const char *str, const char match) {
